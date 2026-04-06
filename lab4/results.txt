@@ -1,0 +1,75 @@
+CLIPS> (load C:/Users/DonnNGeR/Desktop/IVS/lab4/lab4.clp)
+CLIPS> (reset)
+CLIPS> (run)
+
+========================================
+  CAR PURCHASE ADVISOR
+========================================
+
+
+Q: Affordable maintenance cost?
+   Options: low | medium | high
+   Your answer: medium
+   -> Selected: medium
+
+Q: Preferred car age?
+   Options: new | young | mid | old
+   Your answer: mid
+   -> Selected: mid
+
+Q: Cargo space needed?
+   Options: small | medium | large
+   Your answer: medium
+   -> Selected: medium
+
+Q: How many passengers?
+   Options: 2-3 | 4-5 | 6-7+
+   Your answer: 2-3
+   -> Selected: 2-3
+
+Q: Preferred drive type?
+   Options: front | rear | 4wd
+   Your answer: 4wd
+   -> Selected: 4wd
+
+Q: Preferred transmission?
+   Options: manual | automatic | cvt | robot
+   Your answer: automatic
+   -> Selected: automatic
+
+Q: Preferred fuel type?
+   Options: petrol | diesel | electric | hybrid
+   Your answer: petrol
+   -> Selected: petrol
+
+Q: Expected annual mileage?
+   Options: low | medium | high
+   Your answer: medium
+   -> Selected: medium
+
+Q: What is the main purpose?
+   Options: city | highway | offroad | family | work
+   Your answer: family
+   -> Selected: family
+
+Q: What is your budget?
+   Options: low | medium | high | premium
+   Your answer: medium
+   -> Selected: medium
+
+*** RECOMMENDATION: Hyundai Creta ***
+
+========================================
+  RECOMMENDATION
+========================================
+Car: Hyundai Creta
+Type: Compact SUV
+Price: 1.2M - 1.8M RUB
+Fuel: Petrol
+Reliability: 8/10
+Confidence: 90%
+Why? Great value, 4WD, automatic transmission, perfect for family
+========================================
+
+Thank you for using Car Purchase Advisor!
+========================================
