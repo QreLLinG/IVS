@@ -1,6 +1,8 @@
 # ============================================
 # ЛАБОРАТОРНАЯ РАБОТА №3
-# Составление расписания экзаменов методом программирования в ограничениях
+# Программирование в ограничениях
+# Оптимизация расписания экзаменов (CSP + оптимизация)
+# УМЕРЕННАЯ ВЕРСИЯ ДЛЯ GOOGLE COLAB
 # ============================================
 
 # Фрагмент 1: Установка библиотеки (раскомментировать при первом запуске в Colab)
@@ -13,15 +15,15 @@ from collections import defaultdict
 import time
 
 # ============================================
-# Фрагмент 3: Генерация случайных данных
+# Фрагмент 3: Генерация случайных данных (УМЕРЕННОЕ УВЕЛИЧЕНИЕ)
 # ============================================
 
-def generate_random_exams(num_exams=13, num_groups=3, num_teachers=4):
+def generate_random_exams(num_exams=12, num_groups=3, num_teachers=4):
     """
     Генерация случайных входных данных
-    num_exams: количество экзаменов
-    num_groups: количество групп
-    num_teachers: количество преподавателей
+    num_exams: количество экзаменов (увеличено до 12)
+    num_groups: количество групп (3)
+    num_teachers: количество преподавателей (увеличено до 4)
     """
     groups = [f"Group_{chr(65+i)}" for i in range(num_groups)]
     teachers = [f"Prof_{i+1}" for i in range(num_teachers)]
@@ -69,117 +71,100 @@ def print_exams_list(exams):
         print(f"{i+1:<3} {exam['name']:<12} {exam['group']:<10} {exam['teacher']:<12} {exam['duration']} ч")
 
 # ============================================
-# Фрагмент 5: Создание задачи и добавление переменных
+# Фрагмент 5: Создание задачи с заданным количеством дней
 # ============================================
 
-def create_problem(exams, max_days=7):
+def create_problem_for_days(exams, num_days):
     """
-    Создание задачи CP и добавление переменных
-    max_days: максимальное количество дней
+    Создание задачи CSP для фиксированного количества дней
+    num_days: количество доступных дней
     """
     problem = Problem(BacktrackingSolver())
-    days = list(range(1, max_days + 1))
+    days = list(range(1, num_days + 1))
     
-    # Переменные: день для каждого экзамена
+    # Переменные
     for exam in exams:
         problem.addVariable(exam['name'], days)
     
-    print(f"\nСоздана задача с {len(exams)} переменными")
-    print(f"Домены переменных: дни 1..{max_days}")
-    
-    return problem, days
-
-# ============================================
-# Фрагмент 6: Добавление группового ограничения
-# ============================================
-
-def add_group_constraints(problem, exams):
-    """Добавление ограничения: у одной группы не может быть двух экзаменов в один день"""
+    # Групповое ограничение
     groups_dict = defaultdict(list)
     for exam in exams:
         groups_dict[exam['group']].append(exam['name'])
-    
-    print("\nДобавление групповых ограничений:")
-    print("-"*40)
-    
-    for group, exam_list in groups_dict.items():
+    for exam_list in groups_dict.values():
         if len(exam_list) > 1:
             problem.addConstraint(AllDifferentConstraint(), exam_list)
-            print(f"  Группа {group}: экзамены {', '.join(exam_list)} — все в разные дни")
-        else:
-            print(f"  Группа {group}: только один экзамен — ограничение не требуется")
-
-# ============================================
-# Фрагмент 7: Добавление преподавательского ограничения
-# ============================================
-
-def add_teacher_constraints(problem, exams):
-    """Добавление ограничения: преподаватель не может принимать два экзамена одновременно"""
+    
+    # Преподавательское ограничение
     teachers_dict = defaultdict(list)
     for exam in exams:
         teachers_dict[exam['teacher']].append(exam['name'])
-    
-    print("\nДобавление преподавательских ограничений:")
-    print("-"*40)
-    
-    for teacher, exam_list in teachers_dict.items():
+    for exam_list in teachers_dict.values():
         if len(exam_list) > 1:
             problem.addConstraint(AllDifferentConstraint(), exam_list)
-            print(f"  Преподаватель {teacher}: экзамены {', '.join(exam_list)} — все в разные дни")
-        else:
-            print(f"  Преподаватель {teacher}: только один экзамен — ограничение не требуется")
-
-# ============================================
-# Фрагмент 8: Добавление временного ограничения
-# ============================================
-
-def add_time_constraints(problem, exams, days, hours_per_day=8):
-    """Добавление ограничения: суммарная длительность экзаменов в день не более hours_per_day часов"""
-    print(f"\nДобавление временных ограничений (≤ {hours_per_day} часов в день):")
-    print("-"*40)
     
+    # Временное ограничение
     for day in days:
         def day_constraint(*args, day=day, exams=exams):
             total = 0
             for i, d in enumerate(args):
                 if d == day:
                     total += exams[i]['duration']
-            return total <= hours_per_day
-        
+            return total <= 8
         problem.addConstraint(day_constraint, [exam['name'] for exam in exams])
     
-    print(f"  Добавлено ограничение для каждого из {len(days)} дней")
-    print(f"  Суммарная длительность экзаменов в день ≤ {hours_per_day} часов")
+    return problem
 
 # ============================================
-# Фрагмент 9: Решение задачи
+# Фрагмент 6: Оптимизация — поиск минимального количества дней
 # ============================================
 
-def solve_schedule(problem, exams, max_days):
-    """Решение задачи расписания"""
+def find_optimal_schedule(exams):
+    """
+    Поиск оптимального расписания с минимальным количеством дней
+    Возвращает лучшее решение и количество дней
+    """
+    # Вычисляем теоретическую нижнюю границу
+    total_hours = sum(exam['duration'] for exam in exams)
+    theoretical_min = (total_hours + 7) // 8
+    
+    # Верхняя граница (в худшем случае — каждый экзамен в свой день)
+    upper_bound = len(exams)
+    
     print(f"\n{'='*60}")
-    print("ПОИСК РЕШЕНИЯ")
+    print("ОПТИМИЗАЦИЯ — ПОИСК МИНИМАЛЬНОГО КОЛИЧЕСТВА ДНЕЙ")
     print(f"{'='*60}")
+    print(f"  Суммарная длительность: {total_hours} часов")
+    print(f"  Теоретический минимум: {theoretical_min} дней")
+    print(f"  Верхняя граница: {upper_bound} дней")
     
-    start_time = time.time()
-    solutions = problem.getSolutions()
-    elapsed_time = time.time() - start_time
+    best_solution = None
+    best_days = None
     
-    print(f"Время выполнения: {elapsed_time:.2f} секунд")
-    print(f"Найдено решений: {len(solutions)}")
+    # Перебираем возможное количество дней от нижней до верхней границы
+    for num_days in range(theoretical_min, min(upper_bound, 10) + 1):
+        print(f"\n  Пробуем {num_days} дней...")
+        
+        start_time = time.time()
+        problem = create_problem_for_days(exams, num_days)
+        solutions = problem.getSolutions()
+        elapsed = time.time() - start_time
+        
+        if solutions:
+            # Выбираем лучшее решение (минимальное количество использованных дней)
+            candidate = min(solutions, key=lambda s: max(s.values()))
+            actual_days_used = max(candidate.values())
+            print(f"    ✅ РЕШЕНИЕ НАЙДЕНО за {elapsed:.2f} сек")
+            print(f"    Фактически использовано дней: {actual_days_used}")
+            best_solution = candidate
+            best_days = actual_days_used
+            break
+        else:
+            print(f"    ❌ Решений не найдено за {elapsed:.2f} сек")
     
-    if solutions:
-        # Выбираем решение с минимальным количеством дней
-        best_solution = min(solutions, key=lambda s: max(s.values()))
-        best_days = max(best_solution.values())
-        print(f"Оптимальное количество дней: {best_days}")
-        return best_solution, elapsed_time, best_days
-    else:
-        print("❌ РЕШЕНИЕ НЕ НАЙДЕНО!")
-        return None, elapsed_time, None
+    return best_solution, best_days
 
 # ============================================
-# Фрагмент 10: Вывод расписания
+# Фрагмент 7: Вывод расписания
 # ============================================
 
 def print_schedule(solution, exams):
@@ -188,7 +173,6 @@ def print_schedule(solution, exams):
         print("Нет решения для отображения")
         return
     
-    # Группировка по дням
     schedule = defaultdict(list)
     for exam in exams:
         schedule[solution[exam['name']]].append(exam)
@@ -207,16 +191,15 @@ def print_schedule(solution, exams):
             print(f"{exam['name']:<12} {exam['group']:<10} {exam['teacher']:<14} {exam['duration']} ч")
 
 # ============================================
-# Фрагмент 11: Статистика и проверка ограничений
+# Фрагмент 8: Статистика и проверка ограничений
 # ============================================
 
-def print_statistics(solution, exams, groups, teachers, elapsed_time, best_days):
+def print_statistics(solution, exams, groups, teachers, best_days):
     """Вывод статистики и проверка соблюдения ограничений"""
     if not solution:
         print("Нет решения для анализа")
         return
     
-    # Группировка по дням
     schedule = defaultdict(list)
     for exam in exams:
         schedule[solution[exam['name']]].append(exam)
@@ -236,86 +219,64 @@ def print_statistics(solution, exams, groups, teachers, elapsed_time, best_days)
     avg_load = sum(sum(e['duration'] for e in schedule[day]) for day in schedule) / len(schedule)
     print(f"\n📊 Средняя загруженность дня: {avg_load:.1f} часов")
     
-    # ===== ПРОВЕРКА ОГРАНИЧЕНИЙ =====
+    # Проверка ограничений
     print(f"\n{'='*60}")
     print("ПРОВЕРКА СОБЛЮДЕНИЯ ОГРАНИЧЕНИЙ")
     print(f"{'='*60}")
     
-    # Проверка 1: групповое ограничение
+    # Групповое ограничение
     group_violation = False
     for g in groups:
         exam_days = [solution[e['name']] for e in exams if e['group'] == g]
         if len(exam_days) != len(set(exam_days)):
             group_violation = True
-            print(f"  ❌ Группа {g}: нарушение (экзамены в один день)")
+            print(f"  ❌ Группа {g}: нарушение")
     if not group_violation:
         print(f"  ✓ Групповое ограничение: СОБЛЮДАЕТСЯ")
     
-    # Проверка 2: преподавательское ограничение
+    # Преподавательское ограничение
     teacher_violation = False
     for t in teachers:
         exam_days = [solution[e['name']] for e in exams if e['teacher'] == t]
         if len(exam_days) != len(set(exam_days)):
             teacher_violation = True
-            print(f"  ❌ Преподаватель {t}: нарушение (экзамены в один день)")
+            print(f"  ❌ Преподаватель {t}: нарушение")
     if not teacher_violation:
         print(f"  ✓ Преподавательское ограничение: СОБЛЮДАЕТСЯ")
     
-    # Проверка 3: временное ограничение
+    # Временное ограничение
     time_violation = False
     for day in schedule:
         total_hours = sum(e['duration'] for e in schedule[day])
         if total_hours > 8:
             time_violation = True
-            print(f"  ❌ День {day}: {total_hours} часов (максимум 8)")
+            print(f"  ❌ День {day}: {total_hours} часов")
     if not time_violation:
-        print(f"  ✓ Временное ограничение (≤8 часов): СОБЛЮДАЕТСЯ")
-    
-    # Дополнительная информация
-    total_hours_all = sum(e['duration'] for e in exams)
-    theoretical_min = (total_hours_all + 7) // 8
-    
-    print(f"\n{'='*60}")
-    print("ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ")
-    print(f"{'='*60}")
-    print(f"  Суммарная длительность всех экзаменов: {total_hours_all} часов")
-    print(f"  Теоретический минимум дней: {theoretical_min}")
-    print(f"  Фактическое количество дней: {best_days}")
-    print(f"  Время выполнения: {elapsed_time:.2f} секунд")
+        print(f"  ✓ Временное ограничение: СОБЛЮДАЕТСЯ")
 
 # ============================================
-# Фрагмент 12: Итоговое заключение
+# Фрагмент 9: Вывод заключения
 # ============================================
 
-def print_conclusion(best_days, theoretical_min, elapsed_time, num_exams, num_groups, num_teachers):
+def print_conclusion(best_days, theoretical_min, num_exams, num_groups, num_teachers):
     """Вывод итогового заключения"""
     print(f"\n{'='*60}")
     print("ЗАКЛЮЧЕНИЕ")
     print(f"{'='*60}")
     
     if best_days == theoretical_min:
-        print(f"✅ Задача успешно решена методом программирования в ограничениях")
+        print(f"✅ Задача комбинаторной оптимизации решена методом CSP")
         print(f"✅ Количество экзаменов: {num_exams}")
         print(f"✅ Количество групп: {num_groups}")
         print(f"✅ Количество преподавателей: {num_teachers}")
-        print(f"✅ Получено идеальное расписание на {best_days} дней")
-        print(f"✅ Результат совпадает с теоретическим минимумом ({theoretical_min} дней)")
+        print(f"✅ Получено ОПТИМАЛЬНОЕ решение на {best_days} дней")
+        print(f"✅ Результат совпадает с теоретическим минимумом")
         print(f"✅ Все ограничения соблюдены")
-        print(f"✅ Время решения: {elapsed_time:.2f} секунд")
-        print(f"\n📌 В отличие от типичного случая, когда расписание занимает на 1-2 дня больше")
-        print(f"   теоретического минимума из-за конфликтующих ограничений, в данной работе")
-        print(f"   было получено идеальное расписание, полностью совпадающее с нижней границей.")
     else:
-        print(f"✅ Задача успешно решена методом программирования в ограничениях")
-        print(f"✅ Количество экзаменов: {num_exams}")
-        print(f"✅ Количество групп: {num_groups}")
-        print(f"✅ Количество преподавателей: {num_teachers}")
-        print(f"✅ Получено расписание на {best_days} дней")
+        print(f"✅ Задача комбинаторной оптимизации решена методом CSP")
+        print(f"✅ Получено допустимое решение на {best_days} дней")
         print(f"✅ Теоретический минимум: {theoretical_min} дней")
         print(f"✅ Все ограничения соблюдены")
-        print(f"✅ Время решения: {elapsed_time:.2f} секунд")
-    
-    print(f"\n{'='*60}")
 
 # ============================================
 # ОСНОВНАЯ ПРОГРАММА
@@ -325,52 +286,38 @@ def main():
     print("\n" + "="*60)
     print("ЛАБОРАТОРНАЯ РАБОТА №3")
     print("ПРОГРАММИРОВАНИЕ В ОГРАНИЧЕНИЯХ")
-    print("СОСТАВЛЕНИЕ РАСПИСАНИЯ ЭКЗАМЕНОВ")
+    print("ЗАДАЧА КОМБИНАТОРНОЙ ОПТИМИЗАЦИИ — РАСПИСАНИЕ ЭКЗАМЕНОВ")
     print("="*60)
     
-    # Параметры задачи
-    num_exams = 13
-    num_groups = 3
-    num_teachers = 4
-    max_days = 7
-    hours_per_day = 8
+    # Параметры задачи 
+    num_exams = 12      
+    num_groups = 3      
+    num_teachers = 4    
     
-    # Фрагмент 3: Генерация данных
+    # Генерация данных
     exams, groups, teachers = generate_random_exams(num_exams, num_groups, num_teachers)
     
-    # Фрагмент 4: Просмотр данных
+    # Просмотр данных
     print_exams_list(exams)
     
-    # Фрагмент 5: Создание задачи
-    problem, days = create_problem(exams, max_days)
+    # Оптимизация — поиск минимального количества дней
+    total_hours = sum(e['duration'] for e in exams)
+    theoretical_min = (total_hours + 7) // 8
     
-    # Фрагмент 6: Групповые ограничения
-    add_group_constraints(problem, exams)
-    
-    # Фрагмент 7: Преподавательские ограничения
-    add_teacher_constraints(problem, exams)
-    
-    # Фрагмент 8: Временные ограничения
-    add_time_constraints(problem, exams, days, hours_per_day)
-    
-    # Фрагмент 9: Решение задачи
-    solution, elapsed_time, best_days = solve_schedule(problem, exams, max_days)
+    solution, best_days = find_optimal_schedule(exams)
     
     if solution:
-        # Фрагмент 10: Вывод расписания
+        # Вывод расписания
         print_schedule(solution, exams)
         
-        # Фрагмент 11: Статистика
-        print_statistics(solution, exams, groups, teachers, elapsed_time, best_days)
+        # Статистика
+        print_statistics(solution, exams, groups, teachers, best_days)
         
-        # Фрагмент 12: Заключение
-        total_hours = sum(e['duration'] for e in exams)
-        theoretical_min = (total_hours + 7) // 8
-        print_conclusion(best_days, theoretical_min, elapsed_time, num_exams, num_groups, num_teachers)
+        # Заключение
+        print_conclusion(best_days, theoretical_min, num_exams, num_groups, num_teachers)
     else:
-        print("\n❌ Задача не имеет решения при заданных параметрах")
-        print("   Рекомендации: увеличить max_days или уменьшить количество экзаменов")
+        print("\n❌ Оптимальное решение не найдено")
+        print("   Увеличьте верхнюю границу поиска")
 
-# Запуск программы
 if __name__ == "__main__":
     main()
